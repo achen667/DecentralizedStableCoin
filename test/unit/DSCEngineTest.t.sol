@@ -111,7 +111,7 @@ contract DSCEngineTest is Test {
     }
 
     function testCanRedeemCollateral() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT) {
-        uint256 redeemAmount = 1e17;
+        uint256 redeemAmount = 1e18;
 
         vm.startPrank(USER);
         dsc.approve(address(dsc), AMOUNT_MINT);
@@ -124,54 +124,52 @@ contract DSCEngineTest is Test {
     }
 
     function testCanRedeemCollateralAndBurnDSC() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT) {
-        uint256 redeemAmount = 1e17;   //0.1 eth
-        uint256 dscToBurn = redeemAmount * ETH_PRICE * LIQUIDATION_THRESHOLD / LIQUIDATION_PRECISION;   //0.1*2000*50/100 = 100e18
-        console.log("dscToBurn:" ,dscToBurn);
-        
+        uint256 redeemAmount = 1e17; //0.1 eth
+        uint256 dscToBurn = redeemAmount * ETH_PRICE * LIQUIDATION_THRESHOLD / LIQUIDATION_PRECISION; //0.1*2000*50/100 = 100e18
+        console.log("dscToBurn:", dscToBurn);
 
         vm.startPrank(USER);
         dsc.approve(address(dscEngine), AMOUNT_MINT);
         dscEngine.redeemCollateralAndBurnDSC(weth, redeemAmount, dscToBurn);
 
         (uint256 totalDscMInted, uint256 collateralValueInUSD) = dscEngine.getAccountInformation(USER);
-        assertEq(totalDscMInted, AMOUNT_MINT - dscToBurn, "totalDscMInted, AMOUNT_MINT"); 
+        assertEq(totalDscMInted, AMOUNT_MINT - dscToBurn, "totalDscMInted, AMOUNT_MINT");
         assertEq(collateralValueInUSD, (AMOUNT_COLLATERAL - redeemAmount) * ETH_PRICE);
         vm.stopPrank();
     }
 
-    function testCanMintDSC() public depositWethAndMint(AMOUNT_COLLATERAL,AMOUNT_MINT){
-        uint256 dscToMint = 1e18;
-        
+    function testCanMintDSC() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT) {
+        //11weth (22000usd)  to mint  10000dsc(10000usd)
+        uint256 dscToMint = 1000e18;
+
         vm.startPrank(USER);
         dscEngine.mintDSC(dscToMint);
-       
-        (uint256 totalDscMInted, ) = dscEngine.getAccountInformation(USER);
+
+        (uint256 totalDscMInted,) = dscEngine.getAccountInformation(USER);
         assertEq(totalDscMInted, AMOUNT_MINT + dscToMint);
- 
+
         vm.stopPrank();
     }
 
-    function testCanBurnDSC()public depositWethAndMint(AMOUNT_COLLATERAL,AMOUNT_MINT){
+    function testCanBurnDSC() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT) {
         uint256 dscToBurn = 1e18;
-        
+
         vm.startPrank(USER);
         dsc.approve(address(dscEngine), dscToBurn);
         dscEngine.burnDSC(dscToBurn);
-       
-        (uint256 totalDscMInted, ) = dscEngine.getAccountInformation(USER);
+
+        (uint256 totalDscMInted,) = dscEngine.getAccountInformation(USER);
         assertEq(totalDscMInted, AMOUNT_MINT - dscToBurn);
- 
+
         vm.stopPrank();
     }
 
     // function testCanLiquidate()public depositWethAndMint(AMOUNT_COLLATERAL,AMOUNT_MINT){
     //     int256 wethNewPrice = 1000e8;   // 2000e8 -> 1000e8
-    //     // 22000usd,11000dsc   
+    //     // 22000usd,11000dsc
     //     // 11000usd,5500dsc
     //     uint256 debtToCover ; //pay debt
     //     uint256 expectLiquidateCollateralValue;
-
- 
 
     //     vm.startPrank(LIQUIDATOR);
     //     MockV3Aggregator(wethPriceFeed).updateAnswer(wethNewPrice);
@@ -181,15 +179,15 @@ contract DSCEngineTest is Test {
 
     function testCanLiquidate() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT) {
         int256 wethNewPrice = 1000e8; // Step 1: Simulate ETH price drop (8 decimals)
-        uint256 debtToCover = AMOUNT_MINT  ; // 10000dsc // Step 2: Cover half of the debt (or choose full amount)  
-        
+        uint256 debtToCover = AMOUNT_MINT; // 10000dsc // Step 2: Cover half of the debt (or choose full amount)
+
         // Step 3: Start liquidation process
         vm.startPrank(LIQUIDATOR); // impersonate LIQUIDATOR
-        ERC20Mock(weth).mint(LIQUIDATOR, 88888 ether);
-        ERC20Mock(weth).approve(address(dscEngine), 88888 ether);
-        dscEngine.depositCollateralAndMintDSC(weth, 88888 ether, 10000000 ether);
-        (uint256  totalDscMInted,uint256 collateralValueInUSD) =  dscEngine.getAccountInformation(LIQUIDATOR );
-        console.log("dscEngine.getAccountInformation(LIQUIDATOR )",totalDscMInted);
+        ERC20Mock(weth).mint(LIQUIDATOR, 100 ether);
+        ERC20Mock(weth).approve(address(dscEngine), 100 ether);
+        dscEngine.depositCollateralAndMintDSC(weth, 100 ether, 50000 ether);
+        (uint256 totalDscMInted,) = dscEngine.getAccountInformation(LIQUIDATOR);
+        console.log("dscEngine.getAccountInformation(LIQUIDATOR )", totalDscMInted);
         MockV3Aggregator(wethPriceFeed).updateAnswer(wethNewPrice); // lower price
 
         // Step 4: Approve liquidator to burn DSC
@@ -202,17 +200,50 @@ contract DSCEngineTest is Test {
 
         // (Optional) Step 6: Assert changes
         // Check if collateral balance of liquidator increased
-        (,uint256 collateralReceived) = dscEngine.getAccountInformation(LIQUIDATOR );
+        (, uint256 collateralReceived) = dscEngine.getAccountInformation(LIQUIDATOR);
         console.log("collateralReceived", collateralReceived);
         //assertGt(collateralReceived, 0); // liquidator should have received WETH as reward
 
         // Check if USER's DSC debt is reduced
-        (uint256 newDebt, ) = dscEngine.getAccountInformation(USER);
+        (uint256 newDebt,) = dscEngine.getAccountInformation(USER);
         assertLt(newDebt, AMOUNT_MINT); // should be less than before
     }
 
+    function testRevertWhenBadLiquidation() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT) {
+        int256 wethNewPrice = 1000e8;  
+        uint256 debtToCover = 1e18;  //1 usd
+        
+        vm.startPrank(LIQUIDATOR); // impersonate LIQUIDATOR
+        ERC20Mock(weth).mint(LIQUIDATOR, 100 ether);
+        ERC20Mock(weth).approve(address(dscEngine), 100 ether);
+        dscEngine.depositCollateralAndMintDSC(weth, 100 ether, 50000 ether);   
+        MockV3Aggregator(wethPriceFeed).updateAnswer(wethNewPrice); // lower price
+        dsc.approve(address(dscEngine), debtToCover); // allow burn
 
-    function testRevertWhenBadLiquidation()public{
-
+        vm.expectRevert(DSCEngine.DSCEngine__HealthFactorNotImproved.selector);
+        dscEngine.liquidate(weth, USER, debtToCover);
+        vm.stopPrank();
     }
+
+    //
+    // getter 
+
+    function testGetAccountCollateralValue() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT){
+        uint256 value = dscEngine.getAccountCollateralValue(USER);
+        uint256 expectValue =   22000e18;        //11*2000
+        assertEq(value, expectValue);
+    }
+
+    function testGetTokenAmountFromUsd() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT){
+        uint256 value = dscEngine.getTokenAmountFromUsd(weth,2000e18);
+        uint256 expectValue =   1e18;        //2000/2000
+        assertEq(value, expectValue);
+    }
+
+    function testGetHealthFactor() public depositWethAndMint(AMOUNT_COLLATERAL, AMOUNT_MINT){
+        uint256 value = dscEngine.getHealthFactor(USER);
+        uint256 expectValue =   110;        // 
+        assertEq(value, expectValue);        
+    }
+ 
 }

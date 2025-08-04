@@ -10,5 +10,9 @@ out/
 # Docs
 docs/
 
+
 # Dotenv file
 .env
+
+#Test Log
+coverage-report.txt
